@@ -1,0 +1,181 @@
+<!-- ESTILOS (CSS) - Para que se vea bonito -->
+<style>
+    /* La burbuja del chat en la esquina */
+    .chat-bubble {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 60px;
+        height: 60px;
+        background-color: #007bff;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        cursor: pointer;
+        z-index: 999;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    /* La ventana del chat (inicialmente oculta) */
+    .chat-window {
+        position: fixed;
+        bottom: 90px;
+        right: 20px;
+        width: 350px;
+        height: 500px;
+        background-color: white;
+        border-radius: 15px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        display: none; /* Empieza oculto */
+        flex-direction: column;
+        z-index: 1000;
+        overflow: hidden;
+    }
+
+    /* El encabezado del chat */
+    .chat-header {
+        background-color: #007bff;
+        color: white;
+        padding: 15px;
+        text-align: center;
+        font-weight: bold;
+    }
+
+    /* El área donde se muestran los mensajes */
+    .chat-messages {
+        flex-grow: 1;
+        padding: 15px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+    }
+    .message {
+        margin-bottom: 10px;
+        padding: 10px 15px;
+        border-radius: 20px;
+        max-width: 80%;
+    }
+    .user-message {
+        background-color: #e9e9eb;
+        align-self: flex-end; /* A la derecha */
+    }
+    .bot-message {
+        background-color: #007bff;
+        color: white;
+        align-self: flex-start; /* A la izquierda */
+    }
+
+    /* El área para escribir el mensaje */
+    .chat-input {
+        display: flex;
+        padding: 10px;
+        border-top: 1px solid #ccc;
+    }
+    .chat-input input {
+        flex-grow: 1;
+        border: 1px solid #ccc;
+        border-radius: 20px;
+        padding: 10px 15px;
+        margin-right: 10px;
+    }
+    .chat-input button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        cursor: pointer;
+    }
+</style>
+
+<!-- ESTRUCTURA (HTML) - Los elementos del chat -->
+<div class="chat-bubble" id="chat-bubble">
+    <!-- Icono de chat (puedes cambiarlo) -->
+    &#9998;
+</div>
+
+<div class="chat-window" id="chat-window">
+    <div class="chat-header">Asistente Virtual</div>
+    <div class="chat-messages" id="chat-messages">
+        <div class="message bot-message">¡Hola! ¿Cómo puedo ayudarte hoy?</div>
+    </div>
+    <div class="chat-input">
+        <input type="text" id="user-input" placeholder="Escribe tu mensaje...">
+        <button id="send-button">→</button>
+    </div>
+</div>
+
+<!-- LÓGICA (JavaScript) - La magia que lo conecta todo -->
+<script>
+    // URL DE TU WEBHOOK DE N8N
+    const N8N_WEBHOOK_URL = 'https://n8n.jeskocloud.online/webhook-test/fb4b6105-c777-4937-b2af-db8af5e42a1e';
+
+    // Obtener los elementos del DOM
+    const chatBubble = document.getElementById('chat-bubble');
+    const chatWindow = document.getElementById('chat-window');
+    const chatMessages = document.getElementById('chat-messages');
+    const userInput = document.getElementById('user-input');
+    const sendButton = document.getElementById('send-button');
+
+    // Función para mostrar/ocultar la ventana de chat
+    chatBubble.addEventListener('click', () => {
+        chatWindow.style.display = chatWindow.style.display === 'flex' ? 'none' : 'flex';
+    });
+
+    // Función para enviar el mensaje
+    async function sendMessage() {
+        const messageText = userInput.value.trim();
+        if (messageText === '') return;
+
+        // 1. Añadir el mensaje del usuario a la ventana
+        addMessage(messageText, 'user');
+        userInput.value = '';
+
+        try {
+            // 2. Enviar el mensaje a n8n
+            const response = await fetch(N8N_WEBHOOK_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: messageText })
+            });
+            
+            if (!response.ok) {
+                throw new Error('La respuesta de la red no fue correcta.');
+            }
+
+            const data = await response.json();
+
+            // 3. Añadir la respuesta del bot a la ventana
+            // Asumimos que n8n devuelve un JSON como { "reply": "texto de respuesta" }
+            addMessage(data.reply, 'bot');
+
+        } catch (error) {
+            console.error('Error al enviar mensaje a n8n:', error);
+            addMessage('Lo siento, algo salió mal. Inténtalo de nuevo.', 'bot');
+        }
+    }
+
+    // Función para añadir un mensaje al DOM
+    function addMessage(text, sender) {
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('message', `${sender}-message`);
+        messageElement.textContent = text;
+        chatMessages.appendChild(messageElement);
+        // Hacer scroll hasta el último mensaje
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Event listeners para el botón de enviar y la tecla Enter
+    sendButton.addEventListener('click', sendMessage);
+    userInput.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') {
+            sendMessage();
+        }
+    });
+</script>
